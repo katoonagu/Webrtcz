@@ -1,7 +1,7 @@
 
-  # zoom.com.de
+  # zoooom
 
-  This is a code bundle for zoom.com.de. The original project is available at https://www.figma.com/design/suvBKDj6vKZGiXfkZZezOO/zoom.com.de.
+  This is a code bundle for zoooom. The original project is available at https://www.figma.com/design/suvBKDj6vKZGiXfkZZezOO/zoooom.
 
   ## Running the code
 
