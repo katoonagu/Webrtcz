@@ -61,7 +61,7 @@ function Container4({ onClick }: { onClick?: () => void }) {
 function Container5({ onClick }: { onClick?: () => void }) {
   return (
     <div className="box-border content-stretch flex flex-col items-center px-0 py-[15px] relative shrink-0" data-name="Container">
-      <Container4 />
+      <Container4 onClick={onClick} />
     </div>
   );
 }

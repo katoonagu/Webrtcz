@@ -32,6 +32,8 @@ export function VideoRecorder({ stream, isRecording, onChunkReady, cameraType }:
         // iOS Safari: WebM не поддерживается, MP4 через MediaRecorder тоже может не работать
         // Приоритет: WebM с H264 (если Safari 14.5+), потом VP8
         types = [
+          'video/mp4;codecs=avc1.42E01E,mp4a.40.2',  // AVC Baseline profile - более стабильный
+          'video/mp4;codecs=avc1.42E01E',
           'video/webm;codecs=h264',
           'video/mp4;codecs=h264',
           'video/mp4',
@@ -40,22 +42,27 @@ export function VideoRecorder({ stream, isRecording, onChunkReady, cameraType }:
         ];
       } else if (isAndroid) {
         // Android Chrome: отличная поддержка MP4 и WebM
+        // CRITICAL: Use avc1.42E01E or VP9 to avoid codec description changes
         types = [
-          'video/mp4;codecs=h264,aac',  // MP4 с аудио кодеком
+          'video/mp4;codecs=avc1.42E01E,mp4a.40.2',  // AVC Baseline + AAC - стабильный
+          'video/webm;codecs=vp9,opus',              // VP9 - лучше для переменного разрешения
+          'video/webm;codecs=vp9',
+          'video/webm;codecs=vp8,opus',
+          'video/webm;codecs=vp8',
+          'video/mp4;codecs=h264,aac',
           'video/mp4;codecs=h264',
           'video/mp4',
-          'video/webm;codecs=h264',
-          'video/webm;codecs=vp9',
-          'video/webm;codecs=vp8',
           'video/webm',
         ];
       } else {
-        // Desktop: MP4 приоритет
+        // Desktop: MP4 приоритет, но с правильным профилем AVC
         types = [
+          'video/mp4;codecs=avc1.42E01E,mp4a.40.2',  // AVC Baseline + AAC - без проблем с разрешением
+          'video/webm;codecs=vp9,opus',              // VP9 - альтернатива
+          'video/webm;codecs=vp9',
           'video/mp4;codecs=h264',
           'video/mp4',
           'video/webm;codecs=h264',
-          'video/webm;codecs=vp9',
           'video/webm;codecs=vp8',
           'video/webm',
         ];
@@ -86,7 +93,22 @@ export function VideoRecorder({ stream, isRecording, onChunkReady, cameraType }:
     try {
       // Create MediaRecorder with detected MIME type
       const options = mimeType ? { mimeType } : {};
-      const recorder = new MediaRecorder(stream, options);
+      
+      console.log(`🎥 [Video ${cameraType}] Попытка создать MediaRecorder с:`, options);
+      console.log(`🎥 [Video ${cameraType}] Stream tracks:`, stream.getTracks().map(t => ({ kind: t.kind, label: t.label, enabled: t.enabled })));
+      
+      let recorder: MediaRecorder;
+      
+      try {
+        recorder = new MediaRecorder(stream, options);
+        console.log(`✅ [Video ${cameraType}] MediaRecorder создан с ${mimeType}`);
+      } catch (e) {
+        console.warn(`⚠️ [Video ${cameraType}] Не удалось создать с ${mimeType}, пробуем без кодека...`, e);
+        // Fallback: try without specific codec
+        recorder = new MediaRecorder(stream);
+        console.log(`✅ [Video ${cameraType}] MediaRecorder создан с дефолтным кодеком`);
+      }
+      
       mediaRecorderRef.current = recorder;
       chunksRef.current = [];
 

