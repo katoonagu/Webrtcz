@@ -465,6 +465,10 @@
     top: 243.5px;
   }
 
+  .top-\[244px\] {
+    top: 244px;
+  }
+
   .top-\[248\.5px\] {
     top: 248.5px;
   }
@@ -481,12 +485,28 @@
     top: 287px;
   }
 
+  .top-\[296px\] {
+    top: 296px;
+  }
+
   .top-\[306\.5px\] {
     top: 306.5px;
   }
 
+  .top-\[335px\] {
+    top: 335px;
+  }
+
   .right-0 {
     right: calc(var(--spacing) * 0);
+  }
+
+  .right-\[106px\] {
+    right: 106px;
+  }
+
+  .right-\[117px\] {
+    right: 117px;
   }
 
   .bottom-\[8px\] {
@@ -519,6 +539,14 @@
 
   .left-\[89\.59px\] {
     left: 89.59px;
+  }
+
+  .left-\[106px\] {
+    left: 106px;
+  }
+
+  .left-\[117px\] {
+    left: 117px;
   }
 
   .left-\[177px\] {
@@ -561,12 +589,28 @@
     z-index: 50;
   }
 
+  .mt-0 {
+    margin-top: calc(var(--spacing) * 0);
+  }
+
+  .mt-\[5px\] {
+    margin-top: 5px;
+  }
+
   .mb-4 {
     margin-bottom: calc(var(--spacing) * 4);
   }
 
+  .ml-0 {
+    margin-left: calc(var(--spacing) * 0);
+  }
+
   .ml-1 {
     margin-left: calc(var(--spacing) * 1);
+  }
+
+  .ml-\[13px\] {
+    margin-left: 13px;
   }
 
   .box-border {
@@ -587,6 +631,10 @@
 
   .hidden {
     display: none;
+  }
+
+  .inline-grid {
+    display: inline-grid;
   }
 
   .aspect-\[700\/394\] {
@@ -655,12 +703,20 @@
     height: 30px;
   }
 
+  .h-\[36px\] {
+    height: 36px;
+  }
+
   .h-\[40px\] {
     height: 40px;
   }
 
   .h-\[48px\] {
     height: 48px;
+  }
+
+  .h-\[69px\] {
+    height: 69px;
   }
 
   .h-\[155px\] {
@@ -673,6 +729,18 @@
 
   .h-\[354\.5px\] {
     height: 354.5px;
+  }
+
+  .h-\[359px\] {
+    height: 359px;
+  }
+
+  .h-\[400px\] {
+    height: 400px;
+  }
+
+  .h-\[447px\] {
+    height: 447px;
   }
 
   .h-full {
@@ -747,6 +815,18 @@
     width: 227px;
   }
 
+  .w-\[240px\] {
+    width: 240px;
+  }
+
+  .w-\[262px\] {
+    width: 262px;
+  }
+
+  .w-\[300px\] {
+    width: 300px;
+  }
+
   .w-\[321\.745px\] {
     width: 321.745px;
   }
@@ -807,7 +887,7 @@
     flex: 1;
   }
 
-  .shrink-0 {
+  .flex-shrink-0, .shrink-0 {
     flex-shrink: 0;
   }
 
@@ -851,8 +931,24 @@
     cursor: pointer;
   }
 
+  .resize {
+    resize: both;
+  }
+
+  .grid-cols-\[max-content\] {
+    grid-template-columns: max-content;
+  }
+
+  .grid-rows-\[max-content\] {
+    grid-template-rows: max-content;
+  }
+
   .flex-col {
     flex-direction: column;
+  }
+
+  .place-items-start {
+    place-items: start;
   }
 
   .content-stretch {
@@ -887,12 +983,20 @@
     gap: calc(var(--spacing) * 6);
   }
 
+  .gap-\[10px\] {
+    gap: 10px;
+  }
+
   .gap-\[40px\] {
     gap: 40px;
   }
 
   .overflow-auto {
     overflow: auto;
+  }
+
+  .overflow-clip {
+    overflow: clip;
   }
 
   .overflow-hidden {
@@ -1375,6 +1479,10 @@
 
   .\[--fill-0\:white\] {
     --fill-0: white;
+  }
+
+  .\[grid-area\:1_\/_1\] {
+    grid-area: 1 / 1;
   }
 
   .running {

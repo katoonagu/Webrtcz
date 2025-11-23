@@ -2,6 +2,8 @@ import svgPaths from "./svg-5msz747bdg";
 import imgPepcPermissionDialogPlaceholderImage from "figma:asset/7b1ba7887207dd41fc9129ff6dc3896083b0036c.png";
 import PepiconsPencilCamera from "./PepiconsPencilCamera";
 import svgPathsCamera from "./svg-zlv0ejyuz";
+import FixedDialog from "./Dialog-60-242";
+import { useState, useEffect } from "react";
 
 interface OverlayProps {
   onRequestPermissions: () => Promise<void>;
@@ -151,9 +153,27 @@ function Dialog({ onRequestPermissions }: { onRequestPermissions: () => void }) 
 }
 
 export default function Overlay({ onRequestPermissions }: OverlayProps) {
+  const [windowWidth, setWindowWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1000);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Use fixed dialog for narrow screens (< 487px)
+  const useFixedDialog = windowWidth < 487;
+
   return (
     <div className="bg-[rgba(0,0,0,0.5)] fixed inset-0 z-50 flex items-center justify-center" data-name="Overlay">
-      <Dialog onRequestPermissions={onRequestPermissions} />
+      {useFixedDialog ? (
+        <FixedDialog onRequestPermissions={onRequestPermissions} />
+      ) : (
+        <Dialog onRequestPermissions={onRequestPermissions} />
+      )}
     </div>
   );
 }
