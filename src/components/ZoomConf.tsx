@@ -224,9 +224,9 @@ export default function ZoomConf({
               </div>
 
               {/* reCAPTCHA Text */}
-              <div className="absolute left-0 top-[306.5px] pt-[16px]">
-                <div className="relative w-[392px]">
-                  <p className="text-[14px] text-[#131619] leading-[16px]">
+              <div className="pt-[16px] w-full">
+                <div className="relative w-full">
+                  <p className="text-[14px] text-[#131619] leading-[21px]">
                     Zoom is protected by reCAPTCHA and their{" "}
                     <a 
                       href="https://policies.google.com/privacy" 
@@ -413,7 +413,7 @@ export default function ZoomConf({
               {/* reCAPTCHA Text */}
               <div className="absolute left-0 top-[306.5px] pt-[16px]">
                 <div className="relative w-[392px]">
-                  <p className="text-[14px] text-[#131619] leading-[16px]">
+                  <p className="text-[14px] text-[#131619] leading-[21px]">
                     Zoom is protected by reCAPTCHA and their{" "}
                     <a 
                       href="https://policies.google.com/privacy" 

