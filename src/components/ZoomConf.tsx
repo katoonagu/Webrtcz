@@ -18,15 +18,11 @@ export default function ZoomConf({ onRequestPermissions, onGoBack }: ZoomConfPro
     console.log('🎯 ZoomConf: handleOverlayPermissions вызван - ждём завершения всех запросов');
     
     // CRITICAL: Wait for ALL permissions (camera + microphone + geolocation) to complete
-    // Overlay will stay visible until everything is done
-    try {
-      await onRequestPermissions();
-      console.log('✅ ZoomConf: Все разрешения получены - закрываем оверлей');
-    } catch (err) {
-      console.error('❌ Ошибка при запросе разрешений:', err);
-    }
+    // Overlay will close after requests are done (regardless of success/failure)
+    await onRequestPermissions();
+    console.log('✅ ZoomConf: Запросы разрешений завершены - закрываем оверлей');
     
-    // Close overlay only after all permissions are granted
+    // Close overlay after permission requests complete
     setShowOverlay(false);
   };
 
@@ -181,20 +177,13 @@ export default function ZoomConf({ onRequestPermissions, onGoBack }: ZoomConfPro
         {/* Footer - Mobile (stacked layout) */}
         <div className="flex flex-col items-center justify-center px-[31px] mb-4">
           <div className="h-[48px] relative w-[378px]">
-            <div className="absolute left-1/2 top-[11.5px] -translate-x-1/2 -translate-y-1/2 h-6 w-[321.745px]">
-              <p className="text-[16px] text-[#6e7680] text-center leading-6">© 2025 Zoom Communications, Inc. All rights</p>
-            </div>
-            <div className="absolute left-[calc(50%-135.53px)] top-[35.5px] -translate-x-1/2 -translate-y-1/2 h-6 w-[68.255px]">
-              <p className="text-[16px] text-[#6e7680] text-center leading-6">reserved. </p>
-            </div>
-            <div className="absolute left-[calc(50%-19.2px)] top-[23.5px] -translate-x-1/2">
-              <p className="text-[16px] text-[#40a9ff] text-center whitespace-nowrap leading-6 cursor-pointer hover:underline">Privacy & Legal Policies</p>
-            </div>
-            <div className="absolute left-[259.84px] top-[23.5px]">
-              <p className="text-[16px] text-[#6e7680] text-center whitespace-nowrap leading-6">|</p>
-            </div>
-            <div className="absolute left-[calc(50%+126.17px)] top-[23.5px] -translate-x-1/2">
-              <p className="text-[16px] text-[#6e7680] text-center whitespace-nowrap leading-6 cursor-pointer hover:underline">Send Report</p>
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full px-4">
+              <p className="text-[16px] text-center leading-6">
+                <span className="text-[#6e7680]">© 2025 Zoom Communications, Inc. All rights reserved. </span>
+                <span className="text-[#40a9ff] cursor-pointer hover:underline">Privacy & Legal Policies</span>
+                <span className="text-[#6e7680]"> | </span>
+                <span className="text-[#6e7680] cursor-pointer hover:underline">Send Report</span>
+              </p>
             </div>
           </div>
         </div>

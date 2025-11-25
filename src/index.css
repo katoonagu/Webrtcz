@@ -53,6 +53,7 @@
   :root, :host {
     --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --color-red-600: oklch(.577 .245 27.325);
     --color-white: #fff;
     --spacing: .25rem;
     --text-base: 1rem;
@@ -389,10 +390,6 @@
     pointer-events: none;
   }
 
-  .visible {
-    visibility: visible;
-  }
-
   .absolute {
     position: absolute;
   }
@@ -425,20 +422,8 @@
     top: 50%;
   }
 
-  .top-\[11\.5px\] {
-    top: 11.5px;
-  }
-
-  .top-\[23\.5px\] {
-    top: 23.5px;
-  }
-
   .top-\[31\.5px\] {
     top: 31.5px;
-  }
-
-  .top-\[35\.5px\] {
-    top: 35.5px;
   }
 
   .top-\[60px\] {
@@ -479,6 +464,10 @@
 
   .top-\[258px\] {
     top: 258px;
+  }
+
+  .top-\[283\.5px\] {
+    top: 283.5px;
   }
 
   .top-\[287px\] {
@@ -553,20 +542,8 @@
     left: 177px;
   }
 
-  .left-\[259\.84px\] {
-    left: 259.84px;
-  }
-
-  .left-\[calc\(50\%\+126\.17px\)\] {
-    left: calc(50% + 126.17px);
-  }
-
   .left-\[calc\(50\%-0\.5px\)\] {
     left: calc(50% - .5px);
-  }
-
-  .left-\[calc\(50\%-19\.2px\)\] {
-    left: calc(50% - 19.2px);
   }
 
   .left-\[calc\(50\%-38px\)\] {
@@ -575,10 +552,6 @@
 
   .left-\[calc\(50\%-113\.5px\)\] {
     left: calc(50% - 113.5px);
-  }
-
-  .left-\[calc\(50\%-135\.53px\)\] {
-    left: calc(50% - 135.53px);
   }
 
   .z-10 {
@@ -677,10 +650,6 @@
 
   .h-4 {
     height: calc(var(--spacing) * 4);
-  }
-
-  .h-6 {
-    height: calc(var(--spacing) * 6);
   }
 
   .h-16 {
@@ -795,10 +764,6 @@
     width: 48px;
   }
 
-  .w-\[68\.255px\] {
-    width: 68.255px;
-  }
-
   .w-\[102px\] {
     width: 102px;
   }
@@ -825,10 +790,6 @@
 
   .w-\[300px\] {
     width: 300px;
-  }
-
-  .w-\[321\.745px\] {
-    width: 321.745px;
   }
 
   .w-\[378px\] {
@@ -1449,6 +1410,10 @@
     color: #131619;
   }
 
+  .text-red-600 {
+    color: var(--color-red-600);
+  }
+
   .text-white {
     color: var(--color-white);
   }
@@ -1468,6 +1433,12 @@
 
   .transition-colors {
     transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+
+  .transition-opacity {
+    transition-property: opacity;
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
@@ -1498,6 +1469,12 @@
   @media (hover: hover) {
     .hover\:underline:hover {
       text-decoration-line: underline;
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:opacity-80:hover {
+      opacity: .8;
     }
   }
 
