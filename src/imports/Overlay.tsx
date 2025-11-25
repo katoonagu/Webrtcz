@@ -23,7 +23,7 @@ function Container() {
   return (
     <div className="absolute content-stretch flex flex-col items-center left-0 right-0 top-[175px]" data-name="Container">
       <div className="flex flex-col font-['Segoe_UI:Semibold',sans-serif] justify-center leading-[0] not-italic relative shrink-0 text-[#2a2b2d] text-[16px] text-center text-nowrap">
-        <p className="leading-[32px] whitespace-pre font-normal font-bold">Do you want people to see you in the meeting?</p>
+        <p className="leading-[32px] whitespace-pre font-bold">Do you want people to see you in the meeting?</p>
       </div>
     </div>
   );
